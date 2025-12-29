@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>内地与香港居住计算器 (2026年预测版)</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .holiday {
+      border: 2px solid #10B981; /* Green border */
+    }
+    .workday {
+      border: 2px solid #F59E0B; /* Yellow border */
+    }
+    .travel-day {
+      border: 2px solid #8B5CF6; /* Purple border */
+      background-color: #DDD6FE; /* Purple bg */
+    }
+    .mainland {
+      background-color: #FECACA; /* Red bg */
+    }
+    .hongkong {
+      background-color: #BFDBFE; /* Blue bg */
+    }
+    .day-cell {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .day-cell:hover {
+      transform: scale(1.05);
+      z-index: 5;
+    }
+    .tooltip {
+      visibility: hidden;
+      position: absolute;
+      bottom: 110%;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      white-space: nowrap;
+      z-index: 20;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    .day-cell:hover .tooltip {
+      visibility: visible;
+      opacity: 1;
+    }
+    .scheme-item {
+      transition: all 0.2s;
+    }
+    .scheme-item:hover {
+      background-color: #F3F4F6;
+    }
+    .scheme-item.active {
+      background-color: #EFF6FF;
+      border: 1px solid #BFDBFE;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(2px);
+    }
+    .modal-content {
+      background-color: white;
+      padding: 24px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1; 
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1; 
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8; 
+    }
+  </style>
+</head>
+<body class="bg-gray-100 p-4 min-h-screen font-sans text-gray-800">
+  <div class="max-w-6xl mx-auto bg-white rounded-xl shadow-xl p-6 mb-8">
+    <!-- 标题 -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <span>📅</span> 内地与香港居住计算器 (2026年)
+        </h1>
+        <p class="text-gray-500 text-sm mt-1">
+          <span class="bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded text-xs mr-2">预测版</span>
+          点击日历选择出入境日期。出入境当天计入香港居住时间。
+        </p>
+      </div>
+      <div class="flex items-center gap-2 w-full md:w-auto">
+        <select id="scheme-select" class="border border-gray-300 rounded-lg px-3 py-2 w-full md:w-48 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+          <option value="">选择方案</option>
+        </select>
+        <button id="save-scheme-btn" class="flex items-center gap-1 border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-50 text-sm font-medium transition-colors whitespace-nowrap">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+          保存
+        </button>
+      </div>
+    </div>
+
+    <!-- 初始位置设置 -->
+    <div class="bg-gray-50 rounded-xl border border-gray-200 p-5 mb-6">
+      <h2 class="text-base font-semibold mb-3 text-gray-700">初始位置设置 (2026年1月1日)</h2>
+      <div class="flex gap-6">
+        <label class="flex items-center gap-2 cursor-pointer group">
+          <div class="relative flex items-center">
+            <input type="radio" name="initial-location" value="hongkong" checked class="peer h-4 w-4 cursor-pointer appearance-none rounded-full border border-gray-300 checked:border-blue-500 transition-all">
+            <span class="absolute bg-blue-500 w-2.5 h-2.5 rounded-full opacity-0 peer-checked:opacity-100 transition-opacity left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2"></span>
+          </div>
+          <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+          <span class="group-hover:text-blue-600 transition-colors">香港</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer group">
+          <div class="relative flex items-center">
+            <input type="radio" name="initial-location" value="mainland" class="peer h-4 w-4 cursor-pointer appearance-none rounded-full border border-gray-300 checked:border-red-500 transition-all">
+            <span class="absolute bg-red-500 w-2.5 h-2.5 rounded-full opacity-0 peer-checked:opacity-100 transition-opacity left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2"></span>
+          </div>
+          <div class="w-3 h-3 rounded-full bg-red-500"></div>
+          <span class="group-hover:text-red-600 transition-colors">内地</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 图例说明 -->
+    <div class="flex flex-wrap gap-x-6 gap-y-3 p-4 bg-white border border-gray-100 rounded-xl mb-6 text-sm">
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-red-200 border border-red-300"></div>
+        <span>内地</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-blue-200 border border-blue-300"></div>
+        <span>香港</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-purple-200 border-2 border-purple-500"></div>
+        <span>出入境日期</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 border-2 border-green-500 rounded-full bg-white"></div>
+        <span>法定节假日</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 border-2 border-yellow-500 rounded-full bg-white"></div>
+        <span>调休工作日</span>
+      </div>
+    </div>
+
+    <!-- 日历视图 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8" id="calendar-container">
+      <!-- 日历将通过JavaScript动态生成 -->
+    </div>
+
+    <!-- 统计结果 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex justify-between items-center">
+          <div>
+            <h3 class="font-semibold text-gray-700">内地居住</h3>
+            <p class="text-xs text-gray-500 mt-1">含节假日 <span id="holidays-in-mainland" class="font-bold">0</span> 天</p>
+          </div>
+          <div class="text-3xl font-bold text-red-500" id="mainland-days">0<span class="text-sm text-gray-400 ml-1">天</span></div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex justify-between items-center">
+          <div>
+            <h3 class="font-semibold text-gray-700">香港居住</h3>
+            <p class="text-xs text-gray-500 mt-1">含出入境当天</p>
+          </div>
+          <div class="text-3xl font-bold text-blue-500" id="hongkong-days">0<span class="text-sm text-gray-400 ml-1">天</span></div>
+        </div>
+      </div>
+
+      <div class="bg-gray-50 rounded-xl border border-gray-200 p-5">
+        <div class="flex justify-between items-center">
+          <div>
+            <h3 class="font-semibold text-gray-700">总计天数</h3>
+            <p class="text-xs text-gray-500 mt-1">2026年全年</p>
+          </div>
+          <div class="text-3xl font-bold text-gray-800">365<span class="text-sm text-gray-400 ml-1">天</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 已保存方案列表 -->
+    <div id="schemes-container" class="bg-white rounded-xl border border-gray-200 p-6 mb-6 shadow-sm" style="display: none;">
+      <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        已保存方案
+      </h2>
+      <div id="schemes-list" class="space-y-2 max-h-60 overflow-y-auto pr-2">
+        <!-- 方案列表将通过JavaScript动态生成 -->
+      </div>
+    </div>
+
+    <!-- 底部操作按钮 -->
+    <div class="flex flex-col md:flex-row justify-between items-center gap-4 border-t pt-6">
+      <div class="text-xs text-gray-400">
+        数据自动保存在本地浏览器 (LocalStorage: residence_calculator_2026_data)
+      </div>
+      <button id="reset-btn" class="flex items-center gap-2 text-gray-500 hover:text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors text-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+        清空所有数据
+      </button>
+    </div>
+  </div>
+
+  <!-- 保存方案对话框 -->
+  <div id="save-modal" class="modal">
+    <div class="modal-content transform transition-all scale-100">
+      <h2 class="text-xl font-bold mb-4 text-gray-800">保存当前方案</h2>
+      <div class="mb-6">
+        <label for="scheme-name" class="block mb-2 text-sm font-medium text-gray-700">方案名称</label>
+        <input id="scheme-name" type="text" placeholder="例如：2026春节计划" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all">
+      </div>
+      <div class="flex justify-end gap-3">
+        <button id="cancel-save-btn" class="border border-gray-300 text-gray-700 rounded-lg px-4 py-2 hover:bg-gray-50 transition-colors text-sm font-medium">取消</button>
+        <button id="confirm-save-btn" class="bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 shadow-md hover:shadow-lg transition-all text-sm font-medium">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 删除确认对话框 -->
+  <div id="delete-modal" class="modal">
+    <div class="modal-content">
+      <h2 class="text-xl font-bold mb-2 text-gray-800">确认删除</h2>
+      <p class="mb-6 text-gray-600">确定要删除这个方案吗？此操作无法撤销。</p>
+      <div class="flex justify-end gap-3">
+        <button id="cancel-delete-btn" class="border border-gray-300 text-gray-700 rounded-lg px-4 py-2 hover:bg-gray-50 transition-colors text-sm font-medium">取消</button>
+        <button id="confirm-delete-btn" class="bg-red-500 text-white rounded-lg px-4 py-2 hover:bg-red-600 shadow-md hover:shadow-lg transition-all text-sm font-medium">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 2026年的月份数据
+    const months = [
+      { id: 0, name: "1月", days: 31, year: 2026, month: 1 },
+      { id: 1, name: "2月", days: 28, year: 2026, month: 2 },
+      { id: 2, name: "3月", days: 31, year: 2026, month: 3 },
+      { id: 3, name: "4月", days: 30, year: 2026, month: 4 },
+      { id: 4, name: "5月", days: 31, year: 2026, month: 5 },
+      { id: 5, name: "6月", days: 30, year: 2026, month: 6 },
+      { id: 6, name: "7月", days: 31, year: 2026, month: 7 },
+      { id: 7, name: "8月", days: 31, year: 2026, month: 8 },
+      { id: 8, name: "9月", days: 30, year: 2026, month: 9 },
+      { id: 9, name: "10月", days: 31, year: 2026, month: 10 },
+      { id: 10, name: "11月", days: 30, year: 2026, month: 11 },
+      { id: 11, name: "12月", days: 31, year: 2026, month: 12 }
+    ];
+
+    // 2026年内地法定节假日安排（预测版）
+    // 基于农历2026年春节(2月17日)和常规放假规律推算
+    const holidays = {
+      // 一、元旦：1月1日（周四）
+      "2026-01-01": { name: "元旦", type: "holiday" },
+      
+      // 二、春节：2月17日（农历正月初一）。预测2月16日-22日放假(7天)。
+      // 调休预测：2月15日(周日)、2月28日(周六)上班
+      "2026-02-15": { name: "调休", type: "workday" },
+      "2026-02-16": { name: "除夕", type: "holiday" },
+      "2026-02-17": { name: "春节", type: "holiday" },
+      "2026-02-18": { name: "春节", type: "holiday" },
+      "2026-02-19": { name: "春节", type: "holiday" },
+      "2026-02-20": { name: "春节", type: "holiday" },
+      "2026-02-21": { name: "春节", type: "holiday" },
+      "2026-02-22": { name: "春节", type: "holiday" },
+      "2026-02-28": { name: "调休", type: "workday" },
+      
+      // 三、清明节：4月5日（周日）。预测4月4日-6日放假(3天)。
+      "2026-04-04": { name: "清明节", type: "holiday" },
+      "2026-04-05": { name: "清明节", type: "holiday" },
+      "2026-04-06": { name: "清明节", type: "holiday" },
+      
+      // 四、劳动节：5月1日（周五）。预测5月1日-5日放假(5天)。
+      // 调休预测：4月26日(周日)、5月9日(周六)上班
+      "2026-04-26": { name: "调休", type: "workday" },
+      "2026-05-01": { name: "劳动节", type: "holiday" },
+      "2026-05-02": { name: "劳动节", type: "holiday" },
+      "2026-05-03": { name: "劳动节", type: "holiday" },
+      "2026-05-04": { name: "劳动节", type: "holiday" },
+      "2026-05-05": { name: "劳动节", type: "holiday" },
+      "2026-05-09": { name: "调休", type: "workday" },
+      
+      // 五、端午节：6月19日（周五）。预测6月19日-21日放假(3天)。
+      "2026-06-19": { name: "端午节", type: "holiday" },
+      "2026-06-20": { name: "端午节", type: "holiday" },
+      "2026-06-21": { name: "端午节", type: "holiday" },
+      
+      // 六、中秋节：9月25日（周五）。预测9月25日-27日放假(3天)。
+      "2026-09-25": { name: "中秋节", type: "holiday" },
+      "2026-09-26": { name: "中秋节", type: "holiday" },
+      "2026-09-27": { name: "中秋节", type: "holiday" },
+      
+      // 七、国庆节：10月1日（周四）。预测10月1日-7日放假(7天)。
+      // 调休预测：9月20日(周日)或10月10日(周六)上班，这里暂定10月10日
+      "2026-10-01": { name: "国庆节", type: "holiday" },
+      "2026-10-02": { name: "国庆节", type: "holiday" },
+      "2026-10-03": { name: "国庆节", type: "holiday" },
+      "2026-10-04": { name: "国庆节", type: "holiday" },
+      "2026-10-05": { name: "国庆节", type: "holiday" },
+      "2026-10-06": { name: "国庆节", type: "holiday" },
+      "2026-10-07": { name: "国庆节", type: "holiday" },
+      "2026-10-10": { name: "调休", type: "workday" }
+    };
+
+    // 本地存储键名 (使用2026特定键名，避免冲突)
+    const STORAGE_KEY = 'residence_calculator_2026_data';
+    const SCHEMES_KEY = 'residence_schemes_2026';
+
+    // 状态管理
+    let travelDates = new Set();
+    let initialLocation = "hongkong";
+    let stats = {
+      mainland: 0,
+      hongkong: 0,
+      holidaysInMainland: 0
+    };
+    let schemes = [];
+    let currentScheme = null;
+    let schemeToDelete = null;
+
+    // DOM元素
+    const calendarContainer = document.getElementById('calendar-container');
+    const mainlandDaysEl = document.getElementById('mainland-days');
+    const hongkongDaysEl = document.getElementById('hongkong-days');
+    const holidaysInMainlandEl = document.getElementById('holidays-in-mainland');
+    const schemeSelect = document.getElementById('scheme-select');
+    const schemesContainer = document.getElementById('schemes-container');
+    const schemesList = document.getElementById('schemes-list');
+    const saveSchemeBtn = document.getElementById('save-scheme-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const saveModal = document.getElementById('save-modal');
+    const schemeNameInput = document.getElementById('scheme-name');
+    const cancelSaveBtn = document.getElementById('cancel-save-btn');
+    const confirmSaveBtn = document.getElementById('confirm-save-btn');
+    const deleteModal = document.getElementById('delete-modal');
+    const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+    const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+    const locationRadios = document.querySelectorAll('input[name="initial-location"]');
+
+    // 初始化
+    function init() {
+      loadFromLocalStorage();
+      renderCalendar();
+      updateStats();
+      updateSchemesList();
+      setupEventListeners();
+    }
+
+    // 从本地存储加载数据
+    function loadFromLocalStorage() {
+      try {
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        const savedSchemes = localStorage.getItem(SCHEMES_KEY);
+        
+        if (savedData) {
+          const { travelDates: savedDates, initialLocation: savedLocation } = JSON.parse(savedData);
+          travelDates = new Set(savedDates);
+          initialLocation = savedLocation;
+          
+          // 更新单选按钮
+          locationRadios.forEach(radio => {
+            radio.checked = (radio.value === initialLocation);
+          });
+        }
+        
+        if (savedSchemes) {
+          schemes = JSON.parse(savedSchemes);
+        }
+      } catch (error) {
+        console.error("加载本地数据失败", error);
+      }
+    }
+
+    // 保存到本地存储
+    function saveToLocalStorage() {
+      try {
+        const saveData = {
+          travelDates: Array.from(travelDates),
+          initialLocation
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
+      } catch (error) {
+        console.error("保存数据失败", error);
+      }
+    }
+
+    // 渲染日历
+    function renderCalendar() {
+      calendarContainer.innerHTML = '';
+      
+      months.forEach(month => {
+        const monthCard = document.createElement('div');
+        monthCard.className = 'bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow';
+        
+        // 月份标题
+        const monthHeader = document.createElement('h2');
+        monthHeader.className = 'text-lg font-bold mb-4 text-gray-800 border-b pb-2';
+        monthHeader.textContent = month.name;
+        monthCard.appendChild(monthHeader);
+        
+        // 星期表头
+        const weekHeader = document.createElement('div');
+        weekHeader.className = 'grid grid-cols-7 gap-1 mb-2';
+        
+        ["日", "一", "二", "三", "四", "五", "六"].forEach(day => {
+          const dayHeader = document.createElement('div');
+          dayHeader.className = 'text-center text-xs font-medium text-gray-400';
+          dayHeader.textContent = day;
+          weekHeader.appendChild(dayHeader);
+        });
+        
+        monthCard.appendChild(weekHeader);
+        
+        // 日期格子
+        const daysGrid = document.createElement('div');
+        daysGrid.className = 'grid grid-cols-7 gap-1 place-items-center';
+        
+        // 填充月初空白
+        const firstDay = new Date(month.year, month.month - 1, 1).getDay();
+        for (let i = 0; i < firstDay; i++) {
+          const emptyCell = document.createElement('div');
+          emptyCell.className = 'w-10 h-10';
+          daysGrid.appendChild(emptyCell);
+        }
+        
+        // 生成日期
+        for (let day = 1; day <= month.days; day++) {
+          const date = new Date(month.year, month.month - 1, day);
+          const dateStr = date.toISOString().split('T')[0];
+          const holiday = holidays[dateStr];
+          const isTravel = travelDates.has(dateStr);
+          const location = getLocationForDate(dateStr);
+          
+          const dayCell = document.createElement('div');
+          dayCell.className = 'day-cell';
+          dayCell.dataset.date = dateStr;
+          
+          // 设置样式
+          if (isTravel) {
+            dayCell.classList.add('travel-day');
+          } else {
+            dayCell.classList.add(location === 'mainland' ? 'mainland' : 'hongkong');
+            
+            if (holiday) {
+              if (holiday.type === 'holiday') {
+                dayCell.classList.add('holiday');
+              } else {
+                dayCell.classList.add('workday');
+              }
+            }
+          }
+          
+          // 日期文本
+          const dayText = document.createElement('span');
+          dayText.className = 'text-sm font-medium';
+          dayText.textContent = day;
+          dayCell.appendChild(dayText);
+          
+          // 节假日标记
+          if (holiday) {
+            const holidayText = document.createElement('span');
+            holidayText.className = 'text-[10px] absolute -bottom-1 whitespace-nowrap font-bold ' + (holiday.type === 'holiday' ? 'text-green-700' : 'text-yellow-700');
+            holidayText.style.transform = "scale(0.85)";
+            holidayText.textContent = holiday.type === 'holiday' ? 
+              (holiday.name.length > 3 ? (holiday.name === "国庆节/中秋节" ? "双节" : holiday.name.substring(0, 2)) : holiday.name) : 
+              '调休';
+            dayCell.appendChild(holidayText);
+          }
+          
+          // 提示文本
+          const tooltip = document.createElement('div');
+          tooltip.className = 'tooltip';
+          tooltip.textContent = `${dateStr}${holiday ? ` (${holiday.name})` : ''}${isTravel ? ' - 出入境日期' : ''}`;
+          dayCell.appendChild(tooltip);
+          
+          // 点击事件
+          dayCell.addEventListener('click', () => handleDateClick(dateStr));
+          
+          daysGrid.appendChild(dayCell);
+        }
+        
+        monthCard.appendChild(daysGrid);
+        calendarContainer.appendChild(monthCard);
+      });
+    }
+
+    // 处理日期点击
+    function handleDateClick(dateStr) {
+      if (travelDates.has(dateStr)) {
+        travelDates.delete(dateStr);
+      } else {
+        travelDates.add(dateStr);
+      }
+      
+      // 当修改日期时，重置当前方案选择
+      if (currentScheme) {
+        currentScheme = null;
+        schemeSelect.value = '';
+        updateSchemesList();
+      }
+      
+      renderCalendar();
+      updateStats();
+      saveToLocalStorage();
+    }
+
+    // 获取指定日期的位置
+    function getLocationForDate(dateStr) {
+      const date = new Date(dateStr);
+      let travelCount = 0;
+
+      // 将旅行日期排序
+      const sortedTravelDates = Array.from(travelDates).sort();
+      
+      // 如果当前日期是出入境日期，直接返回香港
+      if (travelDates.has(dateStr)) {
+        return "hongkong";
+      }
+
+      // 计算在此日期之前的出入境次数
+      for (const travelDate of sortedTravelDates) {
+        if (new Date(travelDate) < date) {
+          travelCount++;
+        } else {
+          break;
+        }
+      }
+
+      // 根据旅行次数判断当前位置
+      return travelCount % 2 === 0 ? initialLocation : (initialLocation === "mainland" ? "hongkong" : "mainland");
+    }
+
+    // 更新统计数据
+    function updateStats() {
+      let mainland = 0;
+      let hongkong = 0;
+      let holidaysInMainland = 0;
+
+      const startDate = new Date(2026, 0, 1);
+      const endDate = new Date(2026, 11, 31);
+
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        const location = getLocationForDate(dateStr);
+        const holiday = holidays[dateStr];
+
+        if (location === "mainland") {
+          mainland++;
+          if (holiday && holiday.type === "holiday") {
+            holidaysInMainland++;
+          }
+        } else {
+          hongkong++;
+        }
+      }
+
+      stats = { mainland, hongkong, holidaysInMainland };
+      
+      // 更新UI
+      mainlandDaysEl.innerHTML = `${stats.mainland}<span class="text-sm text-gray-400 ml-1">天</span>`;
+      hongkongDaysEl.innerHTML = `${stats.hongkong}<span class="text-sm text-gray-400 ml-1">天</span>`;
+      holidaysInMainlandEl.textContent = stats.holidaysInMainland;
+    }
+
+    // 更新方案列表
+    function updateSchemesList() {
+      // 更新下拉选择框
+      schemeSelect.innerHTML = '<option value="">选择方案</option>';
+      schemes.forEach(scheme => {
+        const option = document.createElement('option');
+        option.value = scheme.id;
+        option.textContent = scheme.name;
+        schemeSelect.appendChild(option);
+      });
+      
+      if (currentScheme) {
+        schemeSelect.value = currentScheme;
+      }
+      
+      // 更新方案列表
+      if (schemes.length > 0) {
+        schemesContainer.style.display = 'block';
+        schemesList.innerHTML = '';
+        
+        schemes.forEach(scheme => {
+          const schemeItem = document.createElement('div');
+          schemeItem.className = `scheme-item flex justify-between items-center p-3 rounded-lg cursor-pointer border border-transparent ${currentScheme === scheme.id ? 'active' : ''}`;
+          schemeItem.dataset.id = scheme.id;
+          
+          const schemeInfo = document.createElement('div');
+          schemeInfo.innerHTML = `
+            <div class="font-medium text-gray-800">${scheme.name}</div>
+            <div class="text-xs text-gray-400 mt-0.5">创建于: ${formatDate(scheme.createTime)}</div>
+          `;
+          
+          const rightSide = document.createElement('div');
+          rightSide.className = 'flex items-center gap-4';
+          
+          const schemeStats = document.createElement('div');
+          schemeStats.className = 'text-sm bg-gray-50 px-2 py-1 rounded';
+          schemeStats.innerHTML = `
+            <span class="text-red-500 font-medium">内地: ${scheme.stats?.mainland || '?'}</span> <span class="text-gray-300">|</span> 
+            <span class="text-blue-500 font-medium">香港: ${scheme.stats?.hongkong || '?'}</span>
+          `;
+          
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors';
+          deleteBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          `;
+          deleteBtn.onclick = (e) => {
+            e.stopPropagation();
+            confirmDeleteScheme(scheme.id);
+          };
+          
+          rightSide.appendChild(schemeStats);
+          rightSide.appendChild(deleteBtn);
+          
+          schemeItem.appendChild(schemeInfo);
+          schemeItem.appendChild(rightSide);
+          
+          schemeItem.onclick = () => loadScheme(scheme.id);
+          
+          schemesList.appendChild(schemeItem);
+        });
+      } else {
+        schemesContainer.style.display = 'none';
+      }
+    }
+
+    // 格式化日期
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    // 方案管理功能
+    function loadScheme(schemeId) {
+      const target = schemes.find(s => s.id === schemeId);
+      if (target) {
+        travelDates = new Set(target.travelDates);
+        initialLocation = target.initialLocation;
+        currentScheme = target.id;
+        
+        // 更新单选按钮
+        locationRadios.forEach(radio => {
+          radio.checked = (radio.value === initialLocation);
+        });
+        
+        renderCalendar();
+        updateStats();
+        updateSchemesList();
+        saveToLocalStorage();
+      }
+    }
+
+    function confirmDeleteScheme(schemeId) {
+      schemeToDelete = schemeId;
+      deleteModal.style.display = 'flex';
+    }
+
+    // 事件监听
+    function setupEventListeners() {
+      // 初始位置切换
+      locationRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+          initialLocation = e.target.value;
+          if (currentScheme) {
+            currentScheme = null;
+            schemeSelect.value = '';
+            updateSchemesList();
+          }
+          renderCalendar();
+          updateStats();
+          saveToLocalStorage();
+        });
+      });
+
+      // 方案选择
+      schemeSelect.addEventListener('change', (e) => {
+        if (e.target.value) {
+          loadScheme(e.target.value);
+        }
+      });
+
+      // 保存方案
+      saveSchemeBtn.addEventListener('click', () => {
+        schemeNameInput.value = '';
+        saveModal.style.display = 'flex';
+        setTimeout(() => schemeNameInput.focus(), 100);
+      });
+
+      cancelSaveBtn.addEventListener('click', () => {
+        saveModal.style.display = 'none';
+      });
+
+      confirmSaveBtn.addEventListener('click', () => {
+        const name = schemeNameInput.value.trim();
+        if (!name) return;
+        
+        const newScheme = {
+          id: Date.now().toString(),
+          name: name,
+          travelDates: Array.from(travelDates),
+          initialLocation,
+          createTime: new Date().toISOString(),
+          stats: { ...stats }
+        };
+
+        schemes.push(newScheme);
+        localStorage.setItem(SCHEMES_KEY, JSON.stringify(schemes));
+        currentScheme = newScheme.id;
+        
+        saveModal.style.display = 'none';
+        updateSchemesList();
+      });
+
+      // 删除方案
+      cancelDeleteBtn.addEventListener('click', () => {
+        deleteModal.style.display = 'none';
+        schemeToDelete = null;
+      });
+
+      confirmDeleteBtn.addEventListener('click', () => {
+        if (!schemeToDelete) return;
+        
+        schemes = schemes.filter(s => s.id !== schemeToDelete);
+        localStorage.setItem(SCHEMES_KEY, JSON.stringify(schemes));
+        
+        if (currentScheme === schemeToDelete) {
+          currentScheme = null;
+          schemeSelect.value = '';
+        }
+        
+        deleteModal.style.display = 'none';
+        schemeToDelete = null;
+        updateSchemesList();
+      });
+
+      // 重置
+      resetBtn.addEventListener('click', () => {
+        if(confirm("确定要清空所有当前选择吗？")) {
+          travelDates = new Set();
+          initialLocation = "hongkong";
+          currentScheme = null;
+          
+          locationRadios.forEach(radio => {
+            radio.checked = (radio.value === "hongkong");
+          });
+          
+          renderCalendar();
+          updateStats();
+          updateSchemesList();
+          saveToLocalStorage();
+        }
+      });
+
+      // 点击模态框外部关闭
+      window.onclick = (event) => {
+        if (event.target === saveModal) {
+          saveModal.style.display = 'none';
+        }
+        if (event.target === deleteModal) {
+          deleteModal.style.display = 'none';
+        }
+      };
+    }
+
+    // 启动应用
+    init();
+  </script>
+</body>
+</html>
