@@ -462,8 +462,9 @@
         
         // 生成日期
         for (let day = 1; day <= month.days; day++) {
-          const date = new Date(month.year, month.month - 1, day);
-          const dateStr = date.toISOString().split('T')[0];
+          // 修复：手动构建日期字符串，避免使用 toISOString() 导致的时区偏移问题
+          const dateStr = `${month.year}-${String(month.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          
           const holiday = holidays[dateStr];
           const isTravel = travelDates.has(dateStr);
           const location = getLocationForDate(dateStr);
@@ -577,7 +578,12 @@
       const endDate = new Date(2026, 11, 31);
 
       for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0];
+        // 修复：统计时也使用手动构建日期字符串
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
         const location = getLocationForDate(dateStr);
         const holiday = holidays[dateStr];
 
